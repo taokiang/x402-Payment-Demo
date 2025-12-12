@@ -1,11 +1,68 @@
-<div align="center">
+# x402 协议支付演示 (x402 Protocol Payment Demo)
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+本项目演示了基于 **x402** 概念（即 HTTP 402 Payment Required 状态码 + 区块链结算）的“付费浏览”实现方案。项目技术栈为 React, TypeScript, 和 Ethers.js v6。
 
-  <h1>Built with AI Studio</h2>
+## 项目概述
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+整个流程模拟了客户端与服务端的协商过程：
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+1.  **请求资源**：客户端向受保护的端点发起请求。
+2.  **402 拦截**：服务端拦截请求，返回 `402 Payment Required` 状态码，并在响应中附带支付详情（接收方地址、金额、链ID）。
+3.  **发起支付**：客户端（浏览器）捕获此错误，解析支付需求，并唤起用户的 Web3 钱包（如 MetaMask）进行支付。
+4.  **提交凭证**：用户确认交易后，客户端获取交易哈希（`TxHash`），将其放入请求头（Header）中重新提交请求。
+5.  **服务端验证**：服务端在链上验证该 `TxHash` 的有效性（金额、接收方是否匹配），验证通过后返回受保护的内容。
 
-</div>
+## 前置要求
+
+1.  **Node.js** (v16 或更高版本)
+2.  浏览器已安装 **MetaMask** (或其他注入式 Web3 钱包插件)。
+3.  **测试网 ETH** (推荐使用 Sepolia 测试网)。
+    *   *注意：本演示仅涉及极小金额（用于模拟 Gas 费和支付流程），且接收地址为销毁地址（Burn Address），请务必使用测试币。*
+
+## 安装与运行
+
+1.  克隆仓库或下载代码文件。
+2.  安装依赖：
+    ```bash
+    npm install
+    # 或者
+    yarn
+    ```
+    *注：本项目核心依赖包括 `vite`, `react`, `react-dom`, `ethers`, `tailwindcss`, `typescript`。*
+
+3.  启动开发服务器：
+    ```bash
+    npm run dev
+    ```
+
+## 使用指南
+
+1.  在浏览器中打开应用（默认为 `http://localhost:5173`）。
+2.  点击右上角的 **Connect Wallet**（连接钱包）链接 MetaMask。
+3.  页面主要区域会显示一个被模糊/锁定的“付费内容”卡片。
+4.  点击 **Unlock Access**（解锁访问）。
+    *   *内部逻辑：* App 尝试获取文章，模拟服务端抛出 402 错误及支付需求（示例为 0.000001 ETH）。
+5.  界面会弹出支付模态框，显示需支付的金额。点击 **Pay Now**（立即支付）。
+6.  MetaMask 弹出交易确认窗口。
+    *   **确认交易**。（请确保你连接的是测试网，以免消耗真实资产）。
+7.  等待交易上链及被打包确认。
+8.  App 自动将交易哈希作为凭证发送回模拟服务端。
+9.  验证通过，内容解锁，展示完整文章。
+
+## 技术细节
+
+### 模拟服务端 (`services/mockServer.ts`)
+由于这是一个纯前端演示，我们没有运行真实的后端服务。`fetchProtectedResource` 函数模拟了 API 行为：
+- 默认抛出一个自定义错误对象，包含 `status: 402` 和 `paymentRequest`（支付参数）。
+- 当调用时附带了 `Authorization: x402 <hash>` 请求头，它会模拟链上查询延迟，然后返回数据。
+
+### Web3 支付逻辑 (`services/web3.ts`)
+使用 `ethers.BrowserProvider` 与 `window.ethereum` 进行交互。
+- `payRequest`：解析目标地址和金额，发送交易，并等待 1 个区块确认，以确保交易已上链。
+
+### 402 状态拦截与处理 (`App.tsx`)
+主组件管理整个支付状态机：
+`IDLE` (空闲) -> `DETECTING` (检测协议) -> `AWAITING_USER` (等待用户支付) -> `PROCESSING_TX` (交易处理中) -> `VERIFYING` (验证凭证) -> `SUCCESS` (成功)。
+
+## 免责声明
+这只是一个纯前端的逻辑演示。在生产环境中，**必须**在安全可信的后端节点上进行交易哈希的验证（检查接收方、金额、是否重复使用等），切勿仅依赖前端逻辑，以防止用户提交伪造的交易哈希。

@@ -1,0 +1,5 @@
+{
+  "name": "x402 Payment Demo",
+  "description": "A demonstration of the x402 web payment protocol using React, Ethers v6, and TypeScript. Simulates a paywall where a 402 Payment Required response triggers a blockchain transaction.",
+  "requestFramePermissions": []
+}
